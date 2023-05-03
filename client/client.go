@@ -59,6 +59,46 @@ func (cli *Client) Init(nick, desc, targetNick string, wpbot bool) error {
 	return nil
 }
 
+func (cli *Client) Shoot(coord string) (res ShootResult, err error) {
+	res = ShootResult{}
+
+	payload := Shoot{Coord: coord}
+
+	payloadJson, err := json.Marshal(payload)
+	if err != nil {
+		return res, fmt.Errorf("cannot marshal payload to json: %w", err)
+	}
+
+	fullPath, err := url.JoinPath(cli.baseUrl, "/game/fire")
+	if err != nil {
+		return res, fmt.Errorf("cannot join path: %w", err)
+	}
+	payloadReader := bytes.NewReader(payloadJson)
+	req, err := http.NewRequest(http.MethodPost, fullPath, payloadReader)
+	req.Header.Set("X-Auth-Token", cli.token)
+	if err != nil {
+		return res, fmt.Errorf("cannot create get request at <base>/game : %w", err)
+	}
+
+	httpRes, err := cli.client.Do(req)
+	if err != nil {
+		return res, fmt.Errorf("cannot perform get request at <base>/game : %w", err)
+	}
+	defer httpRes.Body.Close()
+
+	body, err := io.ReadAll(httpRes.Body)
+	if err != nil {
+		return res, fmt.Errorf("cannot read body : %w", err)
+	}
+
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return res, fmt.Errorf("cannot unmarshall body : %w", err)
+	}
+
+	return res, err
+}
+
 /*
 GetStatus() returns StatusData of current game
 */

@@ -4,10 +4,8 @@ import (
 	"ShipsClient/client"
 	"context"
 	"fmt"
-	"github.com/grupawp/warships-gui"
-	"log"
+	gui "github.com/grupawp/warships-gui/v2"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -16,6 +14,21 @@ type App struct {
 	playerBoard   [10][10]gui.State
 	opponentBoard [10][10]gui.State
 	state         client.StatusData
+}
+
+type GuiApp struct {
+	pBoard            *gui.Board
+	eBoard            *gui.Board
+	myDesc            *gui.Text
+	myNick            *gui.Text
+	oppDesc           *gui.Text
+	oppNick           *gui.Text
+	statusBoard       *gui.Text
+	instructionsBoard *gui.Text
+	shootResultBoard  *gui.Text
+	doIFireNow        *gui.Text
+	roundTimer        *gui.Text
+	ui                *gui.GUI
 }
 
 /*
@@ -31,6 +44,7 @@ Run() performs whole game scenario
 */
 
 func (a *App) Run() error {
+	gA := GuiApp{}
 	err := a.client.Init("BartupG", "Taking down ships like suez canal", "", true)
 	if err != nil {
 		return fmt.Errorf("cannot initialize game : %w", err)
@@ -45,8 +59,6 @@ func (a *App) Run() error {
 			return fmt.Errorf("cannot get status : %w", err)
 		}
 	}
-	println(status.Opponent)
-	println(status.GameStatus)
 	board, err := a.client.GetBoard()
 	if err != nil {
 		return fmt.Errorf("cannot get board : %w", err)
@@ -57,7 +69,9 @@ func (a *App) Run() error {
 		return fmt.Errorf("cannot parse board : %w", err)
 	}
 
-	a.Draw(status)
+	status2, _ := a.client.GetDesc()
+	gA.InitDraw(status2, a)
+	gA.PerformGame(status, a)
 	return nil
 }
 
@@ -95,73 +109,105 @@ func (a *App) ParseBoard(boar client.Board) error {
 	return nil
 }
 
+func (gA *GuiApp) ParseOppBoard(a *App, status client.StatusData) {
+	for _, cords := range status.OppShots {
+		x, y, _ := coordsToInts(cords)
+		a.playerBoard[x][y] = gui.Miss
+	}
+	gA.pBoard.SetStates(a.playerBoard)
+}
+
+func (gA *GuiApp) MarkHit(a *App, cord string) {
+	x, y, _ := coordsToInts(cord)
+	a.opponentBoard[x][y] = gui.Hit
+	gA.eBoard.SetStates(a.opponentBoard)
+}
+
+func (gA *GuiApp) MarkMiss(a *App, cord string) {
+	x, y, _ := coordsToInts(cord)
+	a.opponentBoard[x][y] = gui.Miss
+	gA.eBoard.SetStates(a.opponentBoard)
+}
+
+func (gA *GuiApp) VeryfyHit(a *App, cord string) bool {
+	x, y, _ := coordsToInts(cord)
+	if a.opponentBoard[x][y] == gui.Hit || a.opponentBoard[x][y] == gui.Miss {
+		gA.instructionsBoard.SetText(fmt.Sprintf("Invalid coords : " + cord))
+		return false
+	}
+	gA.instructionsBoard.SetText(fmt.Sprintf("Valid coords : " + cord))
+	return true
+}
+
+func (gA *GuiApp) PerformGame(status client.StatusData, a *App) {
+	//timer
+	go func() {
+		for {
+			status, _ = a.client.GetStatus()
+			time.Sleep(time.Second / 2)
+			gA.roundTimer.SetText(fmt.Sprintf("Timer : ", int(status.Timer)))
+			gA.doIFireNow.SetText(fmt.Sprintf("Should I fire? : ", status.ShouldFire))
+			gA.statusBoard.SetText(status.GameStatus)
+			gA.ParseOppBoard(a, status)
+		}
+	}()
+
+	//fire
+	go func() {
+		for {
+			for status.ShouldFire == true {
+				char := gA.eBoard.Listen(context.TODO())
+				if gA.VeryfyHit(a, char) {
+					shootRes, _ := a.client.Shoot(char)
+					if shootRes.Result == "hit" || shootRes.Result == "sunk" {
+						gA.MarkHit(a, char)
+					}
+					if shootRes.Result == "miss" {
+						gA.MarkMiss(a, char)
+					}
+					gA.shootResultBoard.SetText(shootRes.Result)
+				}
+			}
+		}
+	}()
+
+	gA.ui.Start(nil)
+}
+
 /*
-Draw() draws player's and opponent's boards with corresponding descriptions
+InitDraw() draws player's and opponent's boards with corresponding descriptions
 */
 
-func (a *App) Draw(status client.StatusData) {
-	ctx := context.TODO()
+func (gA *GuiApp) InitDraw(status client.StatusData, a *App) {
+	gA.ui = gui.NewGUI(true)
 
-	drawer := gui.NewDrawer(&gui.Config{})
-	pBoard, err := drawer.NewBoard(0, 10, &gui.BoardConfig{})
-	if err != nil {
-		log.Fatal(fmt.Errorf("cannot create player board : %w", err))
-	}
+	gA.statusBoard = gui.NewText(2, 2, "Display info here", nil)
+	gA.instructionsBoard = gui.NewText(2, 0, "Default Instrucions", nil)
+	gA.shootResultBoard = gui.NewText(80, 0, "Shoot result", nil)
+	gA.doIFireNow = gui.NewText(80, 1, fmt.Sprintf("Should I fire? : ", status.ShouldFire), nil)
+	gA.roundTimer = gui.NewText(80, 2, fmt.Sprintf("Timer : ", status.Timer), nil)
+	gA.pBoard = gui.NewBoard(0, 7, gui.NewBoardConfig())
+	gA.eBoard = gui.NewBoard(80, 7, gui.NewBoardConfig())
 
-	eBoard, err := drawer.NewBoard(90, 10, &gui.BoardConfig{})
-	if err != nil {
-		log.Fatal(fmt.Errorf("cannot create enemy board : %w", err))
-	}
+	gA.myNick = gui.NewText(1, 3, status.Nick, nil)
+	gA.myDesc = gui.NewText(1, 5, status.Desc, nil)
 
-	drawer.DrawBoard(ctx, pBoard, a.playerBoard)
-	drawer.DrawBoard(ctx, eBoard, a.opponentBoard)
+	gA.oppNick = gui.NewText(80, 3, status.Opponent, nil)
+	gA.oppDesc = gui.NewText(80, 5, status.OppDesc, nil)
 
-	status, err = a.client.GetDesc()
+	gA.pBoard.SetStates(a.playerBoard)
+	gA.eBoard.SetStates(a.opponentBoard)
 
-	enemyDesc, err := drawer.NewText(90, 5, nil)
-	if err != nil {
-		log.Fatal(fmt.Errorf("cannot create enemy description text : %w", err))
-	}
+	gA.ui.Draw(gA.statusBoard)
+	gA.ui.Draw(gA.pBoard)
+	gA.ui.Draw(gA.eBoard)
+	gA.ui.Draw(gA.myNick)
+	gA.ui.Draw(gA.myDesc)
+	gA.ui.Draw(gA.oppNick)
+	gA.ui.Draw(gA.oppDesc)
+	gA.ui.Draw(gA.instructionsBoard)
+	gA.ui.Draw(gA.shootResultBoard)
+	gA.ui.Draw(gA.doIFireNow)
+	gA.ui.Draw(gA.roundTimer)
 
-	if len(strings.TrimSpace(status.OppDesc)) == 0 {
-		enemyDesc.SetText("No enemy description")
-	} else {
-		enemyDesc.SetText("Opponent description : " + status.OppDesc)
-	}
-
-	enemyNick, err := drawer.NewText(90, 2, nil)
-	if err != nil {
-		log.Fatal(fmt.Errorf("cannot create enemy nick text : %w", err))
-	}
-
-	if len(strings.TrimSpace(status.Opponent)) == 0 {
-		enemyNick.SetText("No enemy nick")
-	} else {
-		enemyNick.SetText("Oponnent nick : " + status.Opponent)
-	}
-
-	myNick, err := drawer.NewText(0, 2, nil)
-	if err != nil {
-		log.Fatal(fmt.Errorf("cannot create my nick text : %w", err))
-	}
-
-	myNick.SetText("My nick : " + status.Nick)
-
-	myDesc, err := drawer.NewText(0, 5, nil)
-	if err != nil {
-		log.Fatal(fmt.Errorf("cannot create my description text : %w", err))
-	}
-
-	myDesc.SetText("My description : " + status.Desc)
-
-	drawer.DrawText(ctx, enemyNick)
-	drawer.DrawText(ctx, enemyDesc)
-	drawer.DrawText(ctx, myNick)
-	drawer.DrawText(ctx, myDesc)
-
-	for {
-		if !drawer.IsGameRunning() {
-			return
-		}
-	}
 }

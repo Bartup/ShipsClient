@@ -26,3 +26,11 @@ type StatusData struct {
 type Board struct {
 	Board []string `json:"board"`
 }
+
+type Shoot struct {
+	Coord string `json:"coord"`
+}
+
+type ShootResult struct {
+	Result string `json:"result"`
+}
