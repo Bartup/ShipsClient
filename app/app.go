@@ -112,7 +112,12 @@ func (a *App) ParseBoard(boar client.Board) error {
 func (gA *GuiApp) ParseOppBoard(a *App, status client.StatusData) {
 	for _, cords := range status.OppShots {
 		x, y, _ := coordsToInts(cords)
-		a.playerBoard[x][y] = gui.Miss
+		if a.playerBoard[x][y] == gui.Ship || a.playerBoard[x][y] == gui.Hit {
+			a.playerBoard[x][y] = gui.Hit
+		} else {
+			a.playerBoard[x][y] = gui.Miss
+		}
+
 	}
 	gA.pBoard.SetStates(a.playerBoard)
 }
@@ -129,6 +134,37 @@ func (gA *GuiApp) MarkMiss(a *App, cord string) {
 	gA.eBoard.SetStates(a.opponentBoard)
 }
 
+//func (gA *GuiApp) MarkSunk(a *App, cord string) {
+//	x, y, _ := coordsToInts(cord)
+//
+//	if x != 0 || x != 9 || y != 0 || y != 9 {
+//		if a.opponentBoard[x + 1][y] != gui.Hit {
+//			a.opponentBoard[x + 1][y] = gui.Miss
+//		}
+//		if a.opponentBoard[x - 1][y] != gui.Hit {
+//			a.opponentBoard[x - 1][y] = gui.Miss
+//		}
+//		if a.opponentBoard[x + 1][y + 1] != gui.Hit {
+//			a.opponentBoard[x + 1][y + 1] = gui.Miss
+//		}
+//		if a.opponentBoard[x + 1][y - 1] != gui.Hit {
+//			a.opponentBoard[x + 1][y - 1] = gui.Miss
+//		}
+//		if a.opponentBoard[x - 1][y - 1] != gui.Hit {
+//			a.opponentBoard[x - 1][y - 1] = gui.Miss
+//		}
+//		if a.opponentBoard[x - 1][y + 1] != gui.Hit {
+//			a.opponentBoard[x - 1][y + 1] = gui.Miss
+//		}
+//		if a.opponentBoard[x][y + 1] != gui.Hit {
+//			a.opponentBoard[x][y + 1] = gui.Miss
+//		}
+//		if a.opponentBoard[x][y - 1] != gui.Hit {
+//			a.opponentBoard[x][y - 1] = gui.Miss
+//		}
+//	}
+//}
+
 func (gA *GuiApp) VeryfyHit(a *App, cord string) bool {
 	x, y, _ := coordsToInts(cord)
 	if a.opponentBoard[x][y] == gui.Hit || a.opponentBoard[x][y] == gui.Miss {
@@ -144,7 +180,7 @@ func (gA *GuiApp) PerformGame(status client.StatusData, a *App) {
 	go func() {
 		for {
 			status, _ = a.client.GetStatus()
-			time.Sleep(time.Second / 2)
+			time.Sleep(time.Second / 4)
 			gA.roundTimer.SetText(fmt.Sprintf("Timer : ", int(status.Timer)))
 			gA.doIFireNow.SetText(fmt.Sprintf("Should I fire? : ", status.ShouldFire))
 			gA.statusBoard.SetText(status.GameStatus)
@@ -165,7 +201,20 @@ func (gA *GuiApp) PerformGame(status client.StatusData, a *App) {
 					if shootRes.Result == "miss" {
 						gA.MarkMiss(a, char)
 					}
-					gA.shootResultBoard.SetText(shootRes.Result)
+					gA.shootResultBoard.SetText(shootRes.Result + " " + char)
+				}
+			}
+		}
+	}()
+
+	//end game
+	go func() {
+		for {
+			if status.GameStatus == "ended" {
+				if status.LastGameStatus == "win" {
+					gA.instructionsBoard.SetText("Game ended " + "You won!")
+				} else {
+					gA.instructionsBoard.SetText("Game ended " + "You lost!")
 				}
 			}
 		}
