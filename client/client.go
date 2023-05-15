@@ -13,7 +13,7 @@ import (
 type Client struct {
 	client  http.Client
 	baseUrl string
-	token   string
+	Token   string
 }
 
 /*
@@ -54,7 +54,7 @@ func (cli *Client) Init(nick, desc, targetNick string, wpbot bool) error {
 		return fmt.Errorf("cannot perform post request at <base>/game: %w", err)
 	}
 
-	cli.token = res.Header.Get("X-Auth-Token")
+	cli.Token = res.Header.Get("X-Auth-Token")
 
 	return nil
 }
@@ -75,7 +75,7 @@ func (cli *Client) Shoot(coord string) (res ShootResult, err error) {
 	}
 	payloadReader := bytes.NewReader(payloadJson)
 	req, err := http.NewRequest(http.MethodPost, fullPath, payloadReader)
-	req.Header.Set("X-Auth-Token", cli.token)
+	req.Header.Set("X-Auth-Token", cli.Token)
 	if err != nil {
 		return res, fmt.Errorf("cannot create get request at <base>/game : %w", err)
 	}
@@ -112,7 +112,7 @@ func (cli *Client) GetStatus() (status StatusData, err error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, fullPath, nil)
-	req.Header.Set("X-Auth-Token", cli.token)
+	req.Header.Set("X-Auth-Token", cli.Token)
 	if err != nil {
 		return status, fmt.Errorf("cannot create get request at <base>/game : %w", err)
 	}
@@ -145,7 +145,7 @@ func (cli *Client) GetDesc() (status StatusData, err error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, fullPath, nil)
-	req.Header.Set("X-Auth-Token", cli.token)
+	req.Header.Set("X-Auth-Token", cli.Token)
 	if err != nil {
 		return status, fmt.Errorf("cannot create get request at <base>/game/desc : %w", err)
 	}
@@ -182,7 +182,7 @@ func (cli *Client) GetBoard() (board Board, err error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, fullPath, nil)
-	req.Header.Set("X-Auth-Token", cli.token)
+	req.Header.Set("X-Auth-Token", cli.Token)
 	if err != nil {
 		return board, fmt.Errorf("cannot create get request at <base>/game/board : %w", err)
 	}
@@ -203,4 +203,65 @@ func (cli *Client) GetBoard() (board Board, err error) {
 		return board, fmt.Errorf("cannot unmarshall body : %w", err)
 	}
 	return
+}
+
+func (cli *Client) GetList() (list []PlayerList, err error) {
+	list = []PlayerList{}
+
+	fullPath, err := url.JoinPath(cli.baseUrl, "/game/list")
+	if err != nil {
+		return list, fmt.Errorf("cannot join path: %w", err)
+	}
+
+	res, err := http.Get(fullPath)
+	if err != nil {
+		return list, fmt.Errorf("cannot perform get request at <base>/game/list : %w", err)
+	}
+
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return list, fmt.Errorf("cannot read body : %w", err)
+	}
+
+	err = json.Unmarshal(body, &list)
+	if err != nil {
+		return list, fmt.Errorf("cannot unmarshall body : %w", err)
+	}
+
+	return
+}
+
+func (cli *Client) Refresh() error {
+	fullPath, err := url.JoinPath(cli.baseUrl, "/game/refresh")
+	if err != nil {
+		return fmt.Errorf("cannot join path: %w", err)
+	}
+
+	_, err = http.Get(fullPath)
+	if err != nil {
+		return fmt.Errorf("cannot perform get request at <base>/game/list : %w", err)
+	}
+	return err
+}
+
+func (cli *Client) Abondon() error {
+	fullPath, err := url.JoinPath(cli.baseUrl, "/game/abondon")
+	if err != nil {
+		return fmt.Errorf("cannot join path: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, fullPath, nil)
+
+	req.Header.Set("X-Auth-Token", cli.Token)
+	if err != nil {
+		return fmt.Errorf("cannot create get request at <base>/game/abondon : %w", err)
+	}
+
+	res, err := cli.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("cannot perform delete request at <base>/game/abondon : %w", err)
+	}
+	defer res.Body.Close()
+	return err
 }

@@ -14,5 +14,5 @@ const (
 func main() {
 	cli := client.New(serverAddress, httpClientTimeout)
 	ap := app.New(cli)
-	ap.Run()
+	ap.RunWelcomeBoard()
 }

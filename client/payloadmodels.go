@@ -34,3 +34,11 @@ type Shoot struct {
 type ShootResult struct {
 	Result string `json:"result"`
 }
+type PlayerList struct {
+	GameStatus string `json:"game_status"`
+	Nick       string `json:"nick"`
+}
+
+//type Stats struct {
+//	Games
+//}
