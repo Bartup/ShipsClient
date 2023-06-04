@@ -36,6 +36,7 @@ type GuiApp struct {
 	roundTimer        *gui.Text
 	ui                *gui.GUI
 	accurateShots     *gui.Text
+	legend            *gui.Text
 
 	//stats
 	myStats *gui.Text
@@ -396,6 +397,7 @@ func (gA *GuiApp) Clear() {
 	gA.ui.Remove(gA.doIFireNow)
 	gA.ui.Remove(gA.roundTimer)
 	gA.ui.Remove(gA.accurateShots)
+	gA.ui.Remove(gA.legend)
 }
 
 /*
@@ -405,6 +407,7 @@ InitDraw() draws player's and opponent's boards with corresponding descriptions
 func (gA *GuiApp) InitDraw(status client.StatusData, a *App) {
 
 	gA.statusBoard = gui.NewText(0, 2, "Display info here", nil)
+	gA.legend = gui.NewText(130, 11, "S = statek  M = pudło  H = Trafienie", nil)
 	gA.instructionsBoard = gui.NewText(0, 0, "Default Instrucions", nil)
 	gA.shootResultBoard = gui.NewText(80, 0, "Shoot result", nil)
 	gA.accurateShots = gui.NewText(100, 2, "Accurate shots: yet to shoot", nil)
@@ -437,11 +440,13 @@ func (gA *GuiApp) InitDraw(status client.StatusData, a *App) {
 	gA.ui.Draw(gA.roundTimer)
 	gA.ui.Draw(gA.accurateShots)
 	gA.ui.Draw(gA.myStats)
+	gA.ui.Draw(gA.legend)
 
 }
 
 func (gA *GuiApp) UpdateDrawables(status client.StatusData, a *App) {
 	gA.statusBoard.SetText("Display info here")
+	gA.legend.SetText("S = statek  M = pudło  H = Trafienie")
 	gA.instructionsBoard.SetText("Shoot validator")
 	gA.shootResultBoard.SetText("Shoot result")
 	gA.accurateShots.SetText("Accurate shots: 0/0")
@@ -472,4 +477,13 @@ func (gA *GuiApp) UpdateDrawables(status client.StatusData, a *App) {
 	gA.ui.Draw(gA.roundTimer)
 	gA.ui.Draw(gA.accurateShots)
 	gA.ui.Draw(gA.myStats)
+}
+
+func makeRequest(target func() error) {
+	for i := 0; i < 3; i++ {
+		err := target()
+		if err == nil {
+			return
+		}
+	}
 }
