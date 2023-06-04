@@ -19,6 +19,7 @@ type App struct {
 	state         client.StatusData
 	isGameOn      bool
 	nick          string
+	stats         *client.Stats
 }
 
 type GuiApp struct {
@@ -35,6 +36,9 @@ type GuiApp struct {
 	roundTimer        *gui.Text
 	ui                *gui.GUI
 	accurateShots     *gui.Text
+
+	//stats
+	myStats *gui.Text
 }
 
 /*
@@ -42,7 +46,7 @@ New() returns new instance of App
 */
 
 func New(c *client.Client) *App {
-	return &App{client: c, isGameOn: false}
+	return &App{client: c, isGameOn: false, stats: new(client.Stats)}
 }
 
 func (a *App) RunWelcomeBoard() {
@@ -57,6 +61,15 @@ func (a *App) RunWelcomeBoard() {
 			a.client.Abondon()
 		}
 		a.client.Abondon()
+
+		fmt.Print("Show statistics y/n : ")
+		showStats, _ := reader.ReadString('\n')
+		showStats = strings.Replace(showStats, "n", "", -1)
+
+		if showStats == "y" {
+			a.PrintStatistics()
+		}
+
 		fmt.Print("Play with bot? y/n : ")
 		playWithBot, _ := reader.ReadString('\n')
 		playWithBot = strings.Replace(playWithBot, "\n", "", -1)
@@ -158,6 +171,7 @@ func (a *App) Run(opponentNick string, joining bool) error {
 	}
 
 	status2, _ := a.client.GetDesc()
+	*a.stats, _ = a.client.GetStats(a.nick)
 	gA.InitDraw(status2, a)
 	gA.PerformGame(status, a)
 	gA.ui.Start(nil)
@@ -349,6 +363,18 @@ func (gA *GuiApp) HandleEnding(status client.StatusData) bool {
 	return true
 }
 
+func (a *App) PrintStatistics() {
+	sta, _ := a.client.GetAllStats()
+	fmt.Println("Top 10 players :")
+	for i := 0; i < len(sta); i++ {
+		fmt.Println(i)
+		fmt.Print(sta[i].Nick +
+			"  Wins : " + string(sta[i].Wins) +
+			"  Games:  " + string(sta[i].Games) +
+			"  Points:  " + string(sta[i].Points) + "\n")
+	}
+}
+
 func (gA *GuiApp) Clear() {
 	gA.ui.Remove(gA.statusBoard)
 	gA.ui.Remove(gA.pBoard)
@@ -373,16 +399,18 @@ func (gA *GuiApp) InitDraw(status client.StatusData, a *App) {
 	gA.statusBoard = gui.NewText(0, 2, "Display info here", nil)
 	gA.instructionsBoard = gui.NewText(0, 0, "Default Instrucions", nil)
 	gA.shootResultBoard = gui.NewText(80, 0, "Shoot result", nil)
-	gA.accurateShots = gui.NewText(30, 2, "Accurate shots: yet to shoot", nil)
+	gA.accurateShots = gui.NewText(100, 2, "Accurate shots: yet to shoot", nil)
 	gA.doIFireNow = gui.NewText(80, 1, fmt.Sprintf("Should I fire? : ", status.ShouldFire), nil)
 	gA.roundTimer = gui.NewText(80, 2, fmt.Sprintf("Timer : ", status.Timer), nil)
 	gA.pBoard = gui.NewBoard(0, 7, gui.NewBoardConfig())
 	gA.eBoard = gui.NewBoard(80, 7, gui.NewBoardConfig())
+	gA.myStats = gui.NewText(130, 10, fmt.Sprintf("My stats \n Games : %b \n Points : %b \n Rank : %b \n Wins : %b",
+		a.stats.Games, a.stats.Points, a.stats.Rank, a.stats.Wins), nil)
 
-	gA.myNick = gui.NewText(1, 3, status.Nick, nil)
-	gA.myDesc = gui.NewText(1, 5, status.Desc, nil)
+	gA.myNick = gui.NewText(0, 4, status.Nick, nil)
+	gA.myDesc = gui.NewText(0, 5, status.Desc, nil)
 
-	gA.oppNick = gui.NewText(80, 3, status.Opponent, nil)
+	gA.oppNick = gui.NewText(80, 4, status.Opponent, nil)
 	gA.oppDesc = gui.NewText(80, 5, status.OppDesc, nil)
 
 	gA.pBoard.SetStates(a.playerBoard)
@@ -400,16 +428,19 @@ func (gA *GuiApp) InitDraw(status client.StatusData, a *App) {
 	gA.ui.Draw(gA.doIFireNow)
 	gA.ui.Draw(gA.roundTimer)
 	gA.ui.Draw(gA.accurateShots)
+	gA.ui.Draw(gA.myStats)
 
 }
 
 func (gA *GuiApp) UpdateDrawables(status client.StatusData, a *App) {
 	gA.statusBoard.SetText("Display info here")
-	gA.instructionsBoard.SetText("Default Instrucions")
+	gA.instructionsBoard.SetText("Shoot validator")
 	gA.shootResultBoard.SetText("Shoot result")
-	gA.accurateShots.SetText("Accurate shots: yet to shoot")
+	gA.accurateShots.SetText("Accurate shots: 0/0")
 	gA.doIFireNow.SetText(fmt.Sprintf("Should I fire? : ", status.ShouldFire))
 	gA.roundTimer.SetText(fmt.Sprintf("Timer : ", status.Timer))
+	gA.myStats.SetText(fmt.Sprintf("My stats \n Games : %b \n Points : %b \n Rank : %b \n Wins : %b",
+		a.stats.Games, a.stats.Points, a.stats.Rank, a.stats.Wins))
 
 	gA.myNick.SetText(status.Nick)
 	gA.myDesc.SetText(status.Desc)
@@ -432,4 +463,5 @@ func (gA *GuiApp) UpdateDrawables(status client.StatusData, a *App) {
 	gA.ui.Draw(gA.doIFireNow)
 	gA.ui.Draw(gA.roundTimer)
 	gA.ui.Draw(gA.accurateShots)
+	gA.ui.Draw(gA.myStats)
 }

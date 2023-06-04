@@ -208,7 +208,7 @@ func (cli *Client) GetBoard() (board Board, err error) {
 func (cli *Client) GetList() (list []PlayerList, err error) {
 	list = []PlayerList{}
 
-	fullPath, err := url.JoinPath(cli.baseUrl, "/game/list")
+	fullPath, err := url.JoinPath(cli.baseUrl, "/game/lobby")
 	if err != nil {
 		return list, fmt.Errorf("cannot join path: %w", err)
 	}
@@ -227,6 +227,61 @@ func (cli *Client) GetList() (list []PlayerList, err error) {
 	err = json.Unmarshal(body, &list)
 	if err != nil {
 		return list, fmt.Errorf("cannot unmarshall body : %w", err)
+	}
+
+	return
+}
+
+func (cli *Client) GetStats(nick string) (sta Stats, err error) {
+	sta = Stats{}
+
+	fullPath, err := url.JoinPath(cli.baseUrl, "/game/stats/")
+	fullPathWithNick, err := url.JoinPath(fullPath, nick)
+	if err != nil {
+		return sta, fmt.Errorf("cannot join path: %w", err)
+	}
+
+	res, err := http.Get(fullPathWithNick)
+	if err != nil {
+		return sta, fmt.Errorf("cannot perform get request at <base>/game/stats/%s : %w", nick, err)
+	}
+
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return sta, fmt.Errorf("cannot read body : %w", err)
+	}
+
+	err = json.Unmarshal(body, &sta)
+	if err != nil {
+		return sta, fmt.Errorf("cannot unmarshall body : %w", err)
+	}
+
+	return
+}
+
+func (cli *Client) GetAllStats() (sta []Stats, err error) {
+	sta = []Stats{}
+
+	fullPath, err := url.JoinPath(cli.baseUrl, "/game/stats")
+	if err != nil {
+		return sta, fmt.Errorf("cannot join path: %w", err)
+	}
+
+	res, err := http.Get(fullPath)
+	if err != nil {
+		return sta, fmt.Errorf("cannot perform get request at <base>/game/stats : %w", err)
+	}
+
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return sta, fmt.Errorf("cannot read body : %w", err)
+	}
+
+	err = json.Unmarshal(body, &sta)
+	if err != nil {
+		return sta, fmt.Errorf("cannot unmarshall body : %w", err)
 	}
 
 	return
