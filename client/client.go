@@ -16,23 +16,9 @@ type Client struct {
 	Token   string
 }
 
-/*
-New() creates new Client instance
-baseUrl : sets the base url address that all connections will be based on
-timeout : sets timeout on http.Client
-*/
-
 func New(baseUrl string, timeout time.Duration) *Client {
 	return &Client{baseUrl: baseUrl, client: http.Client{Timeout: timeout}}
 }
-
-/*
-Init() initializes battleships game
-nick : sets how player will be called
-desc : sets player's description
-targetNick : sets nick of the player we want to play with
-wpbot : sets flag for playing with wpbot
-*/
 
 func (cli *Client) Init(nick, desc, targetNick string, wpbot bool) error {
 	payload := GamePayload{Nick: nick, Desc: desc, TargetNick: targetNick, Wpbot: wpbot}
@@ -98,10 +84,6 @@ func (cli *Client) Shoot(coord string) (res ShootResult, err error) {
 
 	return res, err
 }
-
-/*
-GetStatus() returns StatusData of current game
-*/
 
 func (cli *Client) GetStatus() (status StatusData, err error) {
 	status = StatusData{}
@@ -260,10 +242,10 @@ func (cli *Client) GetStats(nick string) (sta Stats, err error) {
 	return
 }
 
-func (cli *Client) GetAllStats() (sta []Stats, err error) {
-	sta = []Stats{}
+func (cli *Client) GetAllStats() (sta Allstats, err error) {
+	sta = Allstats{}
 
-	fullPath, err := url.JoinPath(cli.baseUrl, "/game/stats")
+	fullPath, err := url.JoinPath(cli.baseUrl, "/stats")
 	if err != nil {
 		return sta, fmt.Errorf("cannot join path: %w", err)
 	}

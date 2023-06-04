@@ -41,10 +41,6 @@ type GuiApp struct {
 	myStats *gui.Text
 }
 
-/*
-New() returns new instance of App
-*/
-
 func New(c *client.Client) *App {
 	return &App{client: c, isGameOn: false, stats: new(client.Stats)}
 }
@@ -64,9 +60,11 @@ func (a *App) RunWelcomeBoard() {
 
 		fmt.Print("Show statistics y/n : ")
 		showStats, _ := reader.ReadString('\n')
-		showStats = strings.Replace(showStats, "n", "", -1)
+		showStats = strings.Replace(showStats, "\n", "", -1)
+		fmt.Println(showStats)
 
 		if showStats == "y" {
+			fmt.Println("E")
 			a.PrintStatistics()
 		}
 
@@ -364,15 +362,25 @@ func (gA *GuiApp) HandleEnding(status client.StatusData) bool {
 }
 
 func (a *App) PrintStatistics() {
-	sta, _ := a.client.GetAllStats()
-	fmt.Println("Top 10 players :")
-	for i := 0; i < len(sta); i++ {
-		fmt.Println(i)
-		fmt.Print(sta[i].Nick +
-			"  Wins : " + string(sta[i].Wins) +
-			"  Games:  " + string(sta[i].Games) +
-			"  Points:  " + string(sta[i].Points) + "\n")
+	sta, err := a.client.GetAllStats()
+	if err != nil {
+		fmt.Println(err)
 	}
+	fmt.Println("Top 10 players :")
+	for i := 0; i < len(sta.Stats); i++ {
+		fmt.Println()
+		fmt.Println(sta.Stats[i].Nick)
+		fmt.Print("Games : ")
+		fmt.Print(sta.Stats[i].Games)
+		fmt.Print("  Wins : ")
+		fmt.Print(sta.Stats[i].Wins)
+		fmt.Print("  Points : ")
+		fmt.Print(sta.Stats[i].Points)
+		fmt.Print("  Rank : ")
+		fmt.Print(sta.Stats[i].Rank)
+		fmt.Println()
+	}
+	fmt.Println()
 }
 
 func (gA *GuiApp) Clear() {

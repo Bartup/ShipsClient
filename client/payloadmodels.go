@@ -46,3 +46,7 @@ type Stats struct {
 	Rank   int    `json:"rank"`
 	Wins   int    `json:"wins"`
 }
+
+type Allstats struct {
+	Stats []Stats `json:"stats"`
+}
