@@ -190,7 +190,7 @@ func (cli *Client) GetBoard() (board Board, err error) {
 func (cli *Client) GetList() (list []PlayerList, err error) {
 	list = []PlayerList{}
 
-	fullPath, err := url.JoinPath(cli.baseUrl, "/game/lobby")
+	fullPath, err := url.JoinPath(cli.baseUrl, "/lobby")
 	if err != nil {
 		return list, fmt.Errorf("cannot join path: %w", err)
 	}

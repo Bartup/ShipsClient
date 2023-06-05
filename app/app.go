@@ -97,9 +97,23 @@ func (a *App) RunWelcomeBoard() {
 				}
 				PrintAvailablePlayers(playersList)
 				playersMap := PlayersListToMap(playersList)
-				fmt.Println("Enter the number of player you want to play with :")
+				fmt.Println("Enter the number of player you want to play with [or <ref> to refresh>]:")
 				playerIndx, _ := reader.ReadString('\n')
 				playerIndx = strings.Replace(playerIndx, "\n", "", -1)
+				for playerIndx == "ref" {
+					makeRequest(func() error {
+						playersList, err = a.client.GetList()
+						return err
+					})
+					if err != nil {
+						fmt.Println(fmt.Errorf("cannot player list: %w", err))
+					}
+					PrintAvailablePlayers(playersList)
+					playersMap = PlayersListToMap(playersList)
+					fmt.Println("Enter the number of player you want to play with [or <ref> to refresh>]:")
+					playerIndx, _ = reader.ReadString('\n')
+					playerIndx = strings.Replace(playerIndx, "\n", "", -1)
+				}
 				playerIndxInt, _ := strconv.Atoi(playerIndx)
 				playerNick := playersMap[playerIndxInt]
 
