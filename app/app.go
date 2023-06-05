@@ -19,7 +19,7 @@ type App struct {
 	state         client.StatusData
 	isGameOn      bool
 	nick          string
-	stats         *client.Stats
+	stats         *client.Playerstats
 }
 
 type GuiApp struct {
@@ -43,7 +43,7 @@ type GuiApp struct {
 }
 
 func New(c *client.Client) *App {
-	return &App{client: c, isGameOn: false, stats: new(client.Stats)}
+	return &App{client: c, isGameOn: false, stats: new(client.Playerstats)}
 }
 
 func (a *App) RunWelcomeBoard() {
@@ -65,7 +65,6 @@ func (a *App) RunWelcomeBoard() {
 		fmt.Println(showStats)
 
 		if showStats == "y" {
-			fmt.Println("E")
 			a.PrintStatistics()
 		}
 
@@ -131,19 +130,36 @@ func (a *App) Run(opponentNick string, joining bool) error {
 
 	if !joining {
 		if opponentNick == "" {
-			err := a.client.Init(a.nick, "Taking down ships like suez canal", "", true)
+			var err error
+			makeRequest(func() error {
+				err = a.client.Init(a.nick, "Taking down ships like suez canal", "", true)
+				return err
+			})
 			if err != nil {
-				return fmt.Errorf("cannot initialize game : %w", err)
+				return fmt.Errorf("cannot initialize game with bot : %w", err)
 			}
+
 		} else {
-			err := a.client.Init(a.nick, "Taking down ships like suez canal", opponentNick, false)
+			var err error
+			makeRequest(func() error {
+				err = a.client.Init(a.nick, "Taking down ships like suez canal", opponentNick, false)
+				return err
+			})
 			if err != nil {
-				return fmt.Errorf("cannot initialize game : %w", err)
+				return fmt.Errorf("cannot initialize game with opponent %s : %w", opponentNick, err)
 			}
 		}
 	}
 
-	status, err := a.client.GetStatus()
+	var status client.StatusData
+	var err error
+	makeRequest(func() error {
+		status, err = a.client.GetStatus()
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("cannot get status : %w", err)
+	}
 
 	for status.GameStatus == "waiting_wpbot" {
 		time.Sleep(time.Second)
@@ -173,7 +189,8 @@ func (a *App) Run(opponentNick string, joining bool) error {
 	*a.stats, _ = a.client.GetStats(a.nick)
 	gA.InitDraw(status2, a)
 	gA.PerformGame(status, a)
-	gA.ui.Start(nil)
+	ctx := context.Background()
+	gA.ui.Start(ctx, nil)
 	return nil
 }
 
@@ -415,8 +432,8 @@ func (gA *GuiApp) InitDraw(status client.StatusData, a *App) {
 	gA.roundTimer = gui.NewText(80, 2, fmt.Sprintf("Timer : ", status.Timer), nil)
 	gA.pBoard = gui.NewBoard(0, 7, gui.NewBoardConfig())
 	gA.eBoard = gui.NewBoard(80, 7, gui.NewBoardConfig())
-	gA.myStats = gui.NewText(130, 10, fmt.Sprintf("My stats \n Games : %b \n Points : %b \n Rank : %b \n Wins : %b",
-		a.stats.Games, a.stats.Points, a.stats.Rank, a.stats.Wins), nil)
+	gA.myStats = gui.NewText(130, 10, fmt.Sprintf("My stats Games : %v Points : %v Rank : %v Wins : %v",
+		a.stats.Stats.Games, a.stats.Stats.Points, a.stats.Stats.Rank, a.stats.Stats.Wins), nil)
 
 	gA.myNick = gui.NewText(0, 4, status.Nick, nil)
 	gA.myDesc = gui.NewText(0, 5, status.Desc, nil)
@@ -452,8 +469,8 @@ func (gA *GuiApp) UpdateDrawables(status client.StatusData, a *App) {
 	gA.accurateShots.SetText("Accurate shots: 0/0")
 	gA.doIFireNow.SetText(fmt.Sprintf("Should I fire? : ", status.ShouldFire))
 	gA.roundTimer.SetText(fmt.Sprintf("Timer : ", status.Timer))
-	gA.myStats.SetText(fmt.Sprintf("My stats \n Games : %b \n Points : %b \n Rank : %b \n Wins : %b",
-		a.stats.Games, a.stats.Points, a.stats.Rank, a.stats.Wins))
+	gA.myStats.SetText(fmt.Sprintf("My stats Games : %v  Points : %v  Rank : %v  Wins : %v",
+		a.stats.Stats.Games, a.stats.Stats.Points, a.stats.Stats.Rank, a.stats.Stats.Wins))
 
 	gA.myNick.SetText(status.Nick)
 	gA.myDesc.SetText(status.Desc)

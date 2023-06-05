@@ -214,10 +214,10 @@ func (cli *Client) GetList() (list []PlayerList, err error) {
 	return
 }
 
-func (cli *Client) GetStats(nick string) (sta Stats, err error) {
-	sta = Stats{}
+func (cli *Client) GetStats(nick string) (sta Playerstats, err error) {
+	sta = Playerstats{}
 
-	fullPath, err := url.JoinPath(cli.baseUrl, "/game/stats/")
+	fullPath, err := url.JoinPath(cli.baseUrl, "/stats/")
 	fullPathWithNick, err := url.JoinPath(fullPath, nick)
 	if err != nil {
 		return sta, fmt.Errorf("cannot join path: %w", err)

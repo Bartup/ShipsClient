@@ -50,3 +50,7 @@ type Stats struct {
 type Allstats struct {
 	Stats []Stats `json:"stats"`
 }
+
+type Playerstats struct {
+	Stats Stats `json:"stats"`
+}
