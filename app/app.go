@@ -55,9 +55,15 @@ func (a *App) RunWelcomeBoard() {
 			a.nick = strings.Replace(nickname, "\n", "", -1)
 		}
 		if a.client.Token != "" {
-			a.client.Abondon()
+			var err error
+			makeRequest(func() error {
+				err = a.client.Abondon()
+				return err
+			})
+			if err != nil {
+				fmt.Println(fmt.Errorf("cannot abondon: %w", err))
+			}
 		}
-		a.client.Abondon()
 
 		fmt.Print("Show statistics y/n : ")
 		showStats, _ := reader.ReadString('\n')
@@ -80,7 +86,15 @@ func (a *App) RunWelcomeBoard() {
 			playWithSomeone = strings.Replace(playWithSomeone, "\n", "", -1)
 
 			if playWithSomeone == "y" {
-				playersList, _ := a.client.GetList()
+				var playersList []client.PlayerList
+				var err error
+				makeRequest(func() error {
+					playersList, err = a.client.GetList()
+					return err
+				})
+				if err != nil {
+					fmt.Println(fmt.Errorf("cannot player list: %w", err))
+				}
 				PrintAvailablePlayers(playersList)
 				playersMap := PlayersListToMap(playersList)
 				fmt.Println("Enter the number of player you want to play with :")
@@ -93,10 +107,36 @@ func (a *App) RunWelcomeBoard() {
 			} else {
 				a.client.Init(a.nick, "Taking down ships like suez canal", "", false)
 
-				status, _ := a.client.GetStatus()
+				var err error
+				var status client.StatusData
+				makeRequest(func() error {
+					status, err = a.client.GetStatus()
+					return err
+				})
+				if err != nil {
+					fmt.Println(fmt.Errorf("cannot get status: %w", err))
+				}
+
+				indx := 0
 				for status.GameStatus == "waiting" {
+					if indx%10 == 0 {
+						makeRequest(func() error {
+							err = a.client.Refresh()
+							return err
+						})
+						if err != nil {
+							fmt.Println(fmt.Errorf("cannot refresh: %w", err))
+						}
+					}
 					time.Sleep(time.Second)
-					status, _ = a.client.GetStatus()
+					makeRequest(func() error {
+						status, err = a.client.GetStatus()
+						return err
+					})
+					if err != nil {
+						fmt.Println(fmt.Errorf("cannot get status: %w", err))
+					}
+					indx += 1
 				}
 
 				a.Run("", true)
@@ -163,19 +203,30 @@ func (a *App) Run(opponentNick string, joining bool) error {
 
 	for status.GameStatus == "waiting_wpbot" {
 		time.Sleep(time.Second)
-		status, err = a.client.GetStatus()
+		makeRequest(func() error {
+			status, err = a.client.GetStatus()
+			return err
+		})
 		if err != nil {
 			return fmt.Errorf("cannot get status : %w", err)
 		}
 	}
 	for status.GameStatus == "waiting" {
 		time.Sleep(time.Second)
-		status, err = a.client.GetStatus()
+		makeRequest(func() error {
+			status, err = a.client.GetStatus()
+			return err
+		})
 		if err != nil {
 			return fmt.Errorf("cannot get status : %w", err)
 		}
 	}
-	board, err := a.client.GetBoard()
+
+	var board client.Board
+	makeRequest(func() error {
+		board, err = a.client.GetBoard()
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("cannot get board : %w", err)
 	}
@@ -185,18 +236,29 @@ func (a *App) Run(opponentNick string, joining bool) error {
 		return fmt.Errorf("cannot parse board : %w", err)
 	}
 
-	status2, _ := a.client.GetDesc()
-	*a.stats, _ = a.client.GetStats(a.nick)
+	var status2 client.StatusData
+	makeRequest(func() error {
+		status2, err = a.client.GetDesc()
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("cannot get status: %w", err)
+	}
+
+	makeRequest(func() error {
+		*a.stats, err = a.client.GetStats(a.nick)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("cannot get status: %w", err)
+	}
+
 	gA.InitDraw(status2, a)
 	gA.PerformGame(status, a)
 	ctx := context.Background()
 	gA.ui.Start(ctx, nil)
 	return nil
 }
-
-/*
-Parses coordinates to two integers X Y
-*/
 
 func coordsToInts(coords string) (int, int, error) {
 	x := int(coords[0] - 'A')
@@ -243,23 +305,41 @@ func (a *App) RunAgain(opponentNick string, joining bool, gA *GuiApp) error {
 		}
 	}
 
-	status, err := a.client.GetStatus()
+	var err error
+	var status client.StatusData
+	makeRequest(func() error {
+		status, err = a.client.GetStatus()
+		return err
+	})
+	if err != nil {
+		fmt.Println(fmt.Errorf("cannot get status: %w", err))
+	}
 
 	for status.GameStatus == "waiting_wpbot" {
 		time.Sleep(time.Second)
-		status, err = a.client.GetStatus()
+		makeRequest(func() error {
+			status, err = a.client.GetStatus()
+			return err
+		})
 		if err != nil {
-			return fmt.Errorf("cannot get status : %w", err)
+			fmt.Println(fmt.Errorf("cannot get status: %w", err))
 		}
 	}
 	for status.GameStatus == "waiting" {
 		time.Sleep(time.Second)
-		status, err = a.client.GetStatus()
+		makeRequest(func() error {
+			status, err = a.client.GetStatus()
+			return err
+		})
 		if err != nil {
-			return fmt.Errorf("cannot get status : %w", err)
+			fmt.Println(fmt.Errorf("cannot get status: %w", err))
 		}
 	}
-	board, err := a.client.GetBoard()
+	var board client.Board
+	makeRequest(func() error {
+		board, err = a.client.GetBoard()
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("cannot get board : %w", err)
 	}
@@ -269,7 +349,14 @@ func (a *App) RunAgain(opponentNick string, joining bool, gA *GuiApp) error {
 		return fmt.Errorf("cannot parse board : %w", err)
 	}
 
-	status2, _ := a.client.GetDesc()
+	var status2 client.StatusData
+	makeRequest(func() error {
+		status2, err = a.client.GetDesc()
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("cannot get status: %w", err)
+	}
 	gA.UpdateDrawables(status2, a)
 	return err
 }
@@ -313,7 +400,14 @@ func (gA *GuiApp) PerformGame(status client.StatusData, a *App) {
 	//timer
 	go func() {
 		for {
-			status, _ = a.client.GetStatus()
+			var err error
+			makeRequest(func() error {
+				status, err = a.client.GetStatus()
+				return err
+			})
+			if err != nil {
+				fmt.Println(fmt.Errorf("cannot get status: %w", err))
+			}
 			time.Sleep(time.Second)
 			gA.roundTimer.SetText(fmt.Sprintf("Timer : %d", status.Timer))
 			gA.doIFireNow.SetText(fmt.Sprintf("Should I fire? : %t", status.ShouldFire))
@@ -331,7 +425,16 @@ func (gA *GuiApp) PerformGame(status client.StatusData, a *App) {
 				char := gA.eBoard.Listen(context.TODO())
 				if gA.VeryfyHit(a, char) {
 					allShots += 1
-					shootRes, _ := a.client.Shoot(char)
+					var err error
+					var shootRes client.ShootResult
+					makeRequest(func() error {
+						shootRes, err = a.client.Shoot(char)
+						return err
+					})
+					if err != nil {
+						fmt.Println(fmt.Errorf("cannot initialize game with bot : %w", err))
+					}
+
 					if shootRes.Result == "hit" || shootRes.Result == "sunk" {
 						gA.MarkHit(a, char)
 						hits += 1
@@ -347,12 +450,33 @@ func (gA *GuiApp) PerformGame(status client.StatusData, a *App) {
 	}()
 
 	go func() {
-		status, _ := a.client.GetStatus()
+		var err error
+		makeRequest(func() error {
+			status, err = a.client.GetStatus()
+			return err
+		})
+		if err != nil {
+			fmt.Println(fmt.Errorf("cannot get status: %w", err))
+		}
 		for {
-			status, _ = a.client.GetStatus()
+			var err error
+			makeRequest(func() error {
+				status, err = a.client.GetStatus()
+				return err
+			})
+			if err != nil {
+				fmt.Println(fmt.Errorf("cannot get status: %w", err))
+			}
 			for status.GameStatus != "ended" {
 				time.Sleep(time.Second)
-				status, _ = a.client.GetStatus()
+				var err error
+				makeRequest(func() error {
+					status, err = a.client.GetStatus()
+					return err
+				})
+				if err != nil {
+					fmt.Println(fmt.Errorf("cannot get status: %w", err))
+				}
 			}
 			flag := gA.HandleEnding(status)
 			if flag {
@@ -380,10 +504,16 @@ func (gA *GuiApp) HandleEnding(status client.StatusData) bool {
 }
 
 func (a *App) PrintStatistics() {
-	sta, err := a.client.GetAllStats()
+	var sta client.Allstats
+	var err error
+	makeRequest(func() error {
+		sta, err = a.client.GetAllStats()
+		return err
+	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(fmt.Errorf("cannot get all stats: %w", err))
 	}
+
 	fmt.Println("Top 10 players :")
 	for i := 0; i < len(sta.Stats); i++ {
 		fmt.Println()
